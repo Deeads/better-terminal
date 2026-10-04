@@ -1,0 +1,31 @@
+// NSIS launchers don't forward Electron's inspector stderr. Connect to the renderer over CDP instead.
+const { chromium } = require('@playwright/test');
+const { spawn } = require('node:child_process');
+const fs = require('node:fs');
+const path = require('node:path');
+const net = require('node:net');
+const root = path.resolve(__dirname, '..');
+const fixture = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'better-terminal-portable-smoke-'));
+const project = path.join(fixture, 'Portable project'); fs.mkdirSync(project);
+const data = path.join(fixture, 'data'); fs.mkdirSync(data);
+fs.writeFileSync(path.join(data, 'state.json'), JSON.stringify({ settings: { confirmClose: false }, sessions: [{ name: '', direction: 'horizontal', ratio: .5, panes: [{ cwd: project, profile: 'powershell' }] }] }));
+const env = { ...process.env, BETTER_TERMINAL_DATA_DIR: data }; delete env.ELECTRON_RUN_AS_NODE;
+const wait = async (fn, message) => { for (let i = 0; i < 300; i++) { if (await fn()) return; await new Promise(r => setTimeout(r, 200)); } throw new Error(message); };
+let child, browser, page;
+(async () => {
+  const server = net.createServer(); await new Promise(resolve => server.listen(0, '127.0.0.1', resolve)); const port = server.address().port; await new Promise(resolve => server.close(resolve));
+  const version = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
+  child = spawn(path.join(root, `release/Better-Terminal-${version}.exe`), [`--remote-debugging-port=${port}`], { cwd: root, env, windowsHide: true, stdio: 'ignore' });
+  let exited = false; child.on('exit', () => { exited = true; });
+  await wait(async () => { if (exited) throw new Error('Portable launcher exited before startup'); try { return (await fetch(`http://127.0.0.1:${port}/json/version`)).ok; } catch { return false; } }, 'Portable app did not expose its test connection');
+  browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
+  await wait(async () => { page = browser.contexts().flatMap(c => c.pages()).find(p => p.url().includes('index.html')); return !!page; }, 'Portable window not found');
+  await page.waitForSelector('.terminal-pane .xterm-helper-textarea');
+  await wait(async () => (await page.locator('.xterm-rows').innerText()).includes('PS '), 'PowerShell did not start inside the portable app');
+  await page.locator('.xterm-helper-textarea').focus(); await page.keyboard.insertText("Write-Output 'PORTABLE_VERIFIED'"); await page.keyboard.press('Enter');
+  await wait(async () => page.evaluate(async () => { const state = await window.betterTerminal.bootstrap(); const result = await window.betterTerminal.history(state.projects[0].id, 'PORTABLE_VERIFIED'); return result.total === 1; }), 'Portable shell integration did not persist a command');
+  console.log('PASS: portable executable extracts, opens, runs native PowerShell, and persists project history');
+  await page.evaluate(() => window.betterTerminal.windowAction('close'));
+  await wait(async () => exited, 'Portable launcher did not cleanly exit');
+  console.log('PASS: portable application closes cleanly');
+})().catch(async error => { console.error(error); process.exitCode = 1; if (page) await page.evaluate(() => window.betterTerminal.windowAction('close')).catch(() => {}); }).finally(async () => { if (browser) await browser.close().catch(() => {}); });

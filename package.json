@@ -1,0 +1,74 @@
+{
+  "name": "better-terminal",
+  "version": "0.2.2",
+  "description": "A project-first desktop terminal for Windows",
+  "author": "Better Terminal",
+  "private": true,
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "node scripts/dev.cjs",
+    "build": "tsc --noEmit && vite build",
+    "start": "electron .",
+    "test": "node --test tests/*.test.cjs",
+    "test:e2e": "node scripts/smoke.cjs",
+    "test:layout": "node scripts/layout-smoke.cjs",
+    "test:profiles": "node scripts/profiles.cjs",
+    "test:intelligence": "node scripts/intelligence-smoke.cjs",
+    "test:portable": "node scripts/portable-smoke.cjs",
+    "dist": "npm run build && electron-builder --win zip",
+    "dist:portable": "npm run build && electron-builder --win portable",
+    "dist:dir": "npm run build && electron-builder --win --dir",
+    "benchmark:startup": "node scripts/benchmark-startup.cjs",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "build": {
+    "npmRebuild": false,
+    "appId": "app.betterterminal.desktop",
+    "productName": "Better Terminal",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/node-pty/**/*",
+      "electron/shell-integration.*"
+    ],
+    "win": {
+      "target": "zip",
+      "artifactName": "Better-Terminal-${version}-win-${arch}.${ext}",
+      "icon": "build/icon.ico",
+      "signExecutable": false
+    },
+    "portable": {
+      "artifactName": "Better-Terminal-${version}.exe"
+    }
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "0.11.0",
+    "@xterm/addon-search": "0.16.0",
+    "@xterm/addon-unicode11": "0.9.0",
+    "@xterm/addon-web-links": "0.12.0",
+    "@xterm/xterm": "6.0.0",
+    "lucide-react": "1.48.0",
+    "node-pty": "1.1.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "smol-toml": "1.9.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "26.6.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "electron": "44.4.5",
+    "electron-builder": "26.15.3",
+    "typescript": "7.0.2",
+    "vite": "8.3.1"
+  }
+}

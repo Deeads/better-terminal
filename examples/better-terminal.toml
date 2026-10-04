@@ -1,0 +1,10 @@
+# Copy this file to your project root as better-terminal.toml.
+# Commands are offered as suggestions; adding this file does not execute them.
+[project]
+name = "My project"
+stack = ["TypeScript", "React"]
+
+[commands]
+dev = { run = "npm run dev", description = "Start the development server" }
+test = { run = "npm run test", description = "Run project tests" }
+check = { run = "npm run build", description = "Check and build the project" }
